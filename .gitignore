@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
 stockscope
+stockscope.o
 data/historico.csv
 output/*.svg
 output/*.html

@@ -71,17 +71,25 @@ avg_daily:     .skip 8
 best_daily:    .skip 8
 worst_daily:   .skip 8
 volatility:    .skip 8
+io_byte:       .skip 1
+num_buf:       .skip 32
 
 .section .text
-.extern fopen
-.extern fclose
-.extern fgets
-.extern fputs
-.extern fprintf
-.extern puts
-
+.global _start
 .global main
+.type _start, @function
 .type main, @function
+
+# Ponto de entrada sem a CRT/libc. O kernel entrega argc e argv na pilha.
+_start:
+    pop rdi                     # argc
+    mov rsi, rsp                # argv
+    and rsp, -16
+    call main
+    mov edi, eax
+    mov eax, 60                 # sys_exit
+    syscall
+
 main:
     push rbp
     mov rbp, rsp
@@ -103,7 +111,7 @@ main:
     mov rdi, qword ptr [rip + csv_ptr]
     lea rsi, [rip + mode_r]
     xor eax, eax
-    call fopen@PLT
+    call fopen
     test rax, rax
     jz .open_error
     mov rbx, rax
@@ -112,7 +120,7 @@ main:
     lea rdi, [rip + linebuf]
     mov esi, 8192
     mov rdx, rbx
-    call fgets@PLT
+    call fgets
     test rax, rax
     jz .empty_after_read
 
@@ -121,7 +129,7 @@ main:
     lea rdi, [rip + linebuf]
     mov esi, 8192
     mov rdx, rbx
-    call fgets@PLT
+    call fgets
     test rax, rax
     jz .read_done
 
@@ -190,7 +198,7 @@ main:
 
 .read_done:
     mov rdi, rbx
-    call fclose@PLT
+    call fclose
     mov qword ptr [rip + n_records], r12
     test r12, r12
     jz .empty_error
@@ -349,13 +357,13 @@ main:
     lea rdi, [rip + svg_path]
     lea rsi, [rip + mode_w]
     xor eax, eax
-    call fopen@PLT
+    call fopen
     test rax, rax
     jz .output_error
     mov r15, rax
     lea rdi, [rip + svg_header]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
 
     mov rax, qword ptr [rip + max_close]
     xor edx, edx
@@ -367,7 +375,7 @@ main:
     mov rdx, rax
     mov rcx, r8
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
 
     mov rax, qword ptr [rip + min_close]
     xor edx, edx
@@ -379,11 +387,11 @@ main:
     mov rdx, rax
     mov rcx, r8
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
 
     lea rdi, [rip + svg_poly_start]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
 
     xor r13d, r13d
 .svg_points_loop:
@@ -425,32 +433,32 @@ main:
     mov rdx, rbx
     mov rcx, r14
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
     inc r13
     jmp .svg_points_loop
 .svg_points_done:
     lea rdi, [rip + svg_poly_end]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
-    call fclose@PLT
+    call fclose
 
     # Gera dashboard HTML (somente apresentacao; sem recalcular indicadores).
     lea rdi, [rip + html_path]
     lea rsi, [rip + mode_w]
     xor eax, eax
-    call fopen@PLT
+    call fopen
     test rax, rax
     jz .output_error
     mov r15, rax
     lea rdi, [rip + html_header]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     lea rsi, [rip + fmt_html_ticker]
     mov rdx, qword ptr [rip + ticker_ptr]
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
     mov rdi, r15
     lea rsi, [rip + fmt_html_period]
     lea rdx, [rip + dates]
@@ -460,119 +468,119 @@ main:
     lea rcx, [rip + dates]
     add rcx, rax
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
     lea rdi, [rip + html_after_title]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
 
     # Card: fechamento
     lea rdi, [rip + html_card_close]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + last_close]
     call write_money
     lea rdi, [rip + html_card_average]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + avg_close]
     call write_money
     lea rdi, [rip + html_card_max]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + max_close]
     call write_money
     lea rdi, [rip + html_card_min]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + min_close]
     call write_money
     lea rdi, [rip + html_card_return]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + total_return]
     call write_percent
     lea rdi, [rip + html_card_ma7]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + ma7_value]
     call write_money
     lea rdi, [rip + html_card_ma21]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + ma21_value]
     call write_money
     lea rdi, [rip + html_card_volatility]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + volatility]
     call write_percent
     lea rdi, [rip + html_card_best]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + best_daily]
     call write_percent
     lea rdi, [rip + html_card_worst]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     mov rsi, qword ptr [rip + worst_daily]
     call write_percent
     lea rdi, [rip + html_card_volume]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
     lea rsi, [rip + fmt_html_volume]
     mov rdx, qword ptr [rip + avg_volume]
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
     lea rdi, [rip + html_end]
     mov rsi, r15
-    call fputs@PLT
+    call fputs
     mov rdi, r15
-    call fclose@PLT
+    call fclose
 
     lea rdi, [rip + completed_msg]
-    call puts@PLT
+    call puts
     xor eax, eax
     jmp .exit
 
 .empty_after_read:
     mov rdi, rbx
-    call fclose@PLT
+    call fclose
 .empty_error:
     lea rdi, [rip + empty_error_msg]
-    call puts@PLT
+    call puts
     mov eax, 1
     jmp .exit
 .limit_error_close:
     mov rdi, rbx
-    call fclose@PLT
+    call fclose
     lea rdi, [rip + limit_error_msg]
-    call puts@PLT
+    call puts
     mov eax, 1
     jmp .exit
 .usage:
     lea rdi, [rip + usage_msg]
-    call puts@PLT
+    call puts
     mov eax, 1
     jmp .exit
 .open_error:
     lea rdi, [rip + open_error_msg]
-    call puts@PLT
+    call puts
     mov eax, 1
     jmp .exit
 .output_error:
     lea rdi, [rip + output_error_msg]
-    call puts@PLT
+    call puts
     mov eax, 1
 .exit:
     add rsp, 8
@@ -750,7 +758,7 @@ write_money:
     mov rdx, rax
     mov rcx, r8
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
     pop r13
     pop r12
     pop rbp
@@ -782,11 +790,260 @@ write_percent:
     mov rdx, r10
     mov rcx, rax
     xor eax, eax
-    call fprintf@PLT
+    call fprintf
     pop r13
     pop r12
     pop rbp
     ret
 .size write_percent, .-write_percent
+
+# Rotinas de E/S sem libc. Os descritores retornados por fopen recebem +3,
+# assim zero continua sendo o valor de erro esperado pelo restante do programa.
+.type fopen, @function
+fopen:
+    cmp byte ptr [rsi], 'w'
+    je .fo_write
+    xor esi, esi                # O_RDONLY
+    xor edx, edx
+    jmp .fo_open
+.fo_write:
+    mov esi, 577                # O_WRONLY | O_CREAT | O_TRUNC
+    mov edx, 420                # 0644
+.fo_open:
+    mov eax, 2                  # sys_open
+    syscall
+    test rax, rax
+    js .fo_error
+    add rax, 3
+    ret
+.fo_error:
+    xor eax, eax
+    ret
+.size fopen, .-fopen
+
+.type fclose, @function
+fclose:
+    sub rdi, 3
+    mov eax, 3                  # sys_close
+    syscall
+    ret
+.size fclose, .-fclose
+
+# fgets(rdi=buffer, rsi=tamanho, rdx=descritor) -> buffer ou zero no EOF.
+.type fgets, @function
+fgets:
+    push rbx
+    push r12
+    push r13
+    mov r12, rdi
+    mov r13, rsi
+    mov rbx, rdx
+    sub rbx, 3
+    xor r9d, r9d
+    cmp r13, 1
+    jbe .fg_eof
+.fg_loop:
+    lea rsi, [rip + io_byte]
+    mov rdi, rbx
+    mov edx, 1
+    xor eax, eax                # sys_read
+    syscall
+    test rax, rax
+    jle .fg_done
+    mov al, byte ptr [rip + io_byte]
+    mov byte ptr [r12 + r9], al
+    inc r9
+    cmp al, 10
+    je .fg_done
+    mov rax, r13
+    dec rax
+    cmp r9, rax
+    jb .fg_loop
+.fg_done:
+    test r9, r9
+    jz .fg_eof
+    mov byte ptr [r12 + r9], 0
+    mov rax, r12
+    jmp .fg_exit
+.fg_eof:
+    xor eax, eax
+.fg_exit:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+.size fgets, .-fgets
+
+# write_buffer(rdi=descritor codificado, rsi=buffer, rdx=tamanho).
+.type write_buffer, @function
+write_buffer:
+    sub rdi, 3
+.wb_loop:
+    test rdx, rdx
+    jz .wb_done
+    mov eax, 1                  # sys_write
+    syscall
+    test rax, rax
+    jle .wb_done
+    add rsi, rax
+    sub rdx, rax
+    jmp .wb_loop
+.wb_done:
+    ret
+.size write_buffer, .-write_buffer
+
+.type fputs, @function
+fputs:
+    mov r8, rdi
+    xor edx, edx
+.fp_len:
+    cmp byte ptr [r8 + rdx], 0
+    je .fp_write
+    inc rdx
+    jmp .fp_len
+.fp_write:
+    mov rdi, rsi
+    mov rsi, r8
+    call write_buffer
+    ret
+.size fputs, .-fputs
+
+.type write_char, @function
+write_char:
+    mov byte ptr [rip + io_byte], sil
+    lea rsi, [rip + io_byte]
+    mov edx, 1
+    call write_buffer
+    ret
+.size write_char, .-write_char
+
+# write_uint(rdi=descritor codificado, rsi=valor, rdx=largura minima).
+.type write_uint, @function
+write_uint:
+    lea r8, [rip + num_buf + 31]
+    xor ecx, ecx
+    mov rax, rsi
+    mov r9, rdx
+    test rax, rax
+    jnz .wu_digits
+    dec r8
+    mov byte ptr [r8], '0'
+    inc ecx
+    jmp .wu_pad
+.wu_digits:
+    mov r10, 10
+.wu_digit_loop:
+    xor edx, edx
+    div r10
+    add dl, '0'
+    dec r8
+    mov byte ptr [r8], dl
+    inc ecx
+    test rax, rax
+    jnz .wu_digit_loop
+.wu_pad:
+    cmp rcx, r9
+    jae .wu_write
+    dec r8
+    mov byte ptr [r8], '0'
+    inc ecx
+    jmp .wu_pad
+.wu_write:
+    mov rsi, r8
+    mov rdx, rcx
+    call write_buffer
+    ret
+.size write_uint, .-write_uint
+
+# fprintf limitado aos formatos usados neste programa: %s, %ld, %02ld e %%.
+.type fprintf, @function
+fprintf:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    mov r12, rdi                 # descritor
+    mov r13, rsi                 # formato
+    mov rbx, rdx                 # primeiro argumento variadico
+    mov r15, rcx                 # segundo argumento variadico
+    xor r14d, r14d
+.pf_loop:
+    mov al, byte ptr [r13]
+    test al, al
+    jz .pf_done
+    inc r13
+    cmp al, '%'
+    je .pf_percent
+    mov rdi, r12
+    mov sil, al
+    call write_char
+    jmp .pf_loop
+.pf_percent:
+    mov dl, byte ptr [r13]
+    inc r13
+    cmp dl, '%'
+    je .pf_literal_percent
+    xor r8d, r8d
+    cmp dl, '0'
+    jne .pf_conversion
+    mov r8d, 2
+    inc r13                     # pula o "2" de %02ld
+    mov dl, byte ptr [r13]
+    inc r13
+.pf_conversion:
+    cmp dl, 's'
+    je .pf_select_arg
+    cmp dl, 'l'
+    jne .pf_loop
+    mov dl, byte ptr [r13]
+    inc r13
+.pf_select_arg:
+    cmp r14d, 0
+    jne .pf_arg2
+    mov rsi, rbx
+    jmp .pf_arg_ready
+.pf_arg2:
+    mov rsi, r15
+.pf_arg_ready:
+    inc r14d
+    cmp dl, 's'
+    je .pf_string
+    cmp dl, 'd'
+    jne .pf_loop
+    mov rdi, r12
+    mov rdx, r8
+    call write_uint
+    jmp .pf_loop
+.pf_string:
+    mov rdi, rsi
+    mov rsi, r12
+    call fputs
+    jmp .pf_loop
+.pf_literal_percent:
+    mov rdi, r12
+    mov sil, '%'
+    call write_char
+    jmp .pf_loop
+.pf_done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+.size fprintf, .-fprintf
+
+.type puts, @function
+puts:
+    mov r8, rdi
+    mov rdi, r8
+    mov esi, 4                  # stdout (1) codificado
+    call fputs
+    mov edi, 4
+    mov sil, 10
+    call write_char
+    ret
+.size puts, .-puts
 
 .section .note.GNU-stack,"",@progbits

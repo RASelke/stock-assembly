@@ -39,7 +39,9 @@ else
 fi
 
 echo "Compilando Assembly..."
-gcc -x assembler -Wall -Wextra -O0 -g -no-pie -o stockscope main.asm
+# main.asm possui ponto de entrada e E/S por syscalls; não usa libc nem gcc.
+as --64 -o stockscope.o main.asm
+ld -o stockscope stockscope.o
 
 echo "Processando CSV em Assembly..."
 ./stockscope "$CSV" "$TICKER"
